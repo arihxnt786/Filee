@@ -10,6 +10,7 @@ using System.Text;
 using System.Xml.Linq;
 using Filee.Core.Conversion;
 using Filee.Core.Presets;
+using Filee.Engines.Hwp;
 using Filee.Engines.Infrastructure;
 using Filee.Engines.Pdf;
 using static Filee.Engines.Tests.DocxAssert;
@@ -77,6 +78,97 @@ public class ComplexScriptTests(EngineFixture fx) : IClassFixture<EngineFixture>
     }
 
     [Fact]
+    public void Scripts_without_widths_are_found_in_documents()
+    {
+        // rhwp#8143: rhwp's width tables cover only ASCII, Latin-1, general punctuation, math, the CJK forms and
+        // Hangul, so a letter of any other script — Polish, Turkish, Vietnamese, Greek, Cyrillic, ... — is drawn
+        // but laid out at a fixed half-em.
+        var folder = fx.NewFolder();
+        string Docx(string name, string text)
+        {
+            var builder = new DocxBuilder();
+            builder.Paragraph(DocxBuilder.P(DocxBuilder.R(text)));
+            return builder.Save(Path.Combine(folder, name));
+        }
+        string Text(string name, string text)
+        {
+            var path = Path.Combine(folder, name);
+            File.WriteAllText(path, text, new UTF8Encoding(false));
+            return path;
+        }
+
+        Assert.Equal("Latin Extended", ComplexScripts.FindUnmeasuredInFile(Docx("polish.docx", "Zażółć gęślą jaźń"), "docx"));
+        Assert.Equal("Latin Extended", ComplexScripts.FindUnmeasuredInFile(Text("vietnamese.md", "Tiếng Việt"), "md"));
+        Assert.Equal("Greek", ComplexScripts.FindUnmeasuredInFile(Docx("greek.docx", "Αναφορά Report"), "docx"));
+        Assert.Equal("Cyrillic", ComplexScripts.FindUnmeasuredInFile(Docx("russian.docx", "Отчёт за месяц"), "docx"));
+        Assert.Equal("Cyrillic", ComplexScripts.FindUnmeasuredInFile(Text("russian.txt", "Заголовок\nтекст"), "txt"));
+        Assert.Equal("Cyrillic", ComplexScripts.FindUnmeasuredInFile(Text("russian.md", "# Отчёт\n\ntext"), "md"));
+        Assert.Equal("Armenian", ComplexScripts.FindUnmeasuredInFile(Text("armenian.txt", "Հայերեն տեքստ"), "txt"));
+        Assert.Equal("Georgian", ComplexScripts.FindUnmeasuredInFile(Text("georgian.txt", "ქართული ტექსტი"), "txt"));
+        // A precomposed é is Latin-1 and measured; e + ´ decomposed is not.
+        Assert.Equal("combining marks", ComplexScripts.FindUnmeasuredInFile(Text("decomposed.md", "cafe\u0301"), "md"));
+
+        // Latin-1 letters are measured, Hangul, CJK and the full-width forms are estimated right at a full em,
+        // and text that needs shaping is the other scan's job.
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("latin1.docx", "Ça été über Straße niño"), "docx"));
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("korean.docx", "한국어 문서"), "docx"));
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("japanese.docx", "日本語のテキスト"), "docx"));
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("chinese.docx", "中文文档"), "docx"));
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("fullwidth.docx", "ＡＢＣ"), "docx"));
+        Assert.Null(ComplexScripts.FindUnmeasuredInFile(Docx("arabic.docx", "مرحبا بالعالم"), "docx"));
+        Assert.Null(ComplexScripts.FindInFile(Docx("russian-2.docx", "Отчёт"), "docx"));
+    }
+
+    [Fact]
+    public void A_character_reference_outside_unicode_is_skipped()
+    {
+        // &#1114112; (0x110000) and RTF \u-99999 (still negative past +0x10000) name no code point: a malformed
+        // reference before a document's letters must not lose both answers of the scan to an exception.
+        var folder = fx.NewFolder();
+        string Text(string name, string text)
+        {
+            var path = Path.Combine(folder, name);
+            File.WriteAllText(path, text, new UTF8Encoding(false));
+            return path;
+        }
+
+        var html = ComplexScripts.FindBothInFile(Text("bad-ref.html", "<p>&#1114112; &#x5E9;&#x5DC;</p>"), "html");
+        Assert.Equal("Hebrew", html.Shaping);
+
+        var rtf = ComplexScripts.FindBothInFile(Text("bad-ref.rtf", @"{\rtf1 \u-99999? ᒈ\u1513?\u1500?}"), "rtf");
+        Assert.Equal("Hebrew", rtf.Shaping);
+    }
+
+    [Fact]
+    public void Variation_selectors_are_not_unmeasured_text()
+    {
+        // U+FE0F picks an emoji's picture form (❤️, ✔️), U+E0100 an ideograph's registered variant (葛󠄀): the
+        // zero-width mark rides on a letter rhwp measures, so it must not reroute the document.
+        var folder = fx.NewFolder();
+        var builder = new DocxBuilder();
+        builder.Paragraph(DocxBuilder.P(DocxBuilder.R("Déjà vu ❤️ ✔️")));
+        var docx = builder.Save(Path.Combine(folder, "emoji.docx"));
+        var txt = Path.Combine(folder, "ivs.txt");
+        File.WriteAllText(txt, "葛\U000E0100の本文", new UTF8Encoding(false));
+
+        Assert.Null(ComplexScripts.FindBothInFile(docx, "docx").Unmeasured);
+        Assert.Null(ComplexScripts.FindBothInFile(txt, "txt").Unmeasured);
+    }
+
+    [Fact]
+    public void Both_answers_come_from_one_scan()
+    {
+        // Cyrillic before Arabic: the scan remembers the first unmeasured script while it looks on for shaping
+        // text, so the file keeps both answers.
+        var path = Path.Combine(fx.NewFolder(), "mixed.txt");
+        File.WriteAllText(path, "Отчёт مرحبا", new UTF8Encoding(false));
+
+        var (shaping, unmeasured) = ComplexScripts.FindBothInFile(path, "txt");
+        Assert.Equal("Arabic", shaping);
+        Assert.Equal("Cyrillic", unmeasured);
+    }
+
+    [Fact]
     public async Task Scripts_are_found_in_hwpx_sections()
     {
         var folder = fx.NewFolder();
@@ -96,6 +188,23 @@ public class ComplexScriptTests(EngineFixture fx) : IClassFixture<EngineFixture>
         Assert.All(rhwp.Edges.Where(e => e.To == "pdf"), e => Assert.True(e.Unshaped));
         Assert.All(rhwp.Edges.Where(e => e.To != "pdf"), e => Assert.False(e.Unshaped));
         Assert.IsAssignableFrom<ITextShapingCheck>(rhwp);
+    }
+
+    [Fact]
+    public void A_file_is_scanned_again_once_its_text_changed()
+    {
+        // A file converted twice in a session — a watch folder, a document saved again — is scanned again:
+        // an answer cached on the path would route its new text the old way.
+        var path = Path.Combine(fx.NewFolder(), "report.md");
+        File.WriteAllText(path, "A plain English report.", new UTF8Encoding(false));
+        var rhwp = new RhwpConverter();
+
+        var clean = rhwp.ScanScripts(path, "md");
+        Assert.Null(clean.NeedsShaping);
+        Assert.Null(clean.WithoutWidths);
+
+        File.WriteAllText(path, "مرحبا بالعالم", new UTF8Encoding(false));
+        Assert.Equal("Arabic", rhwp.ScanScripts(path, "md").NeedsShaping);
     }
 
     [Fact]

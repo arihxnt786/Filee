@@ -62,7 +62,9 @@ public sealed class RoutePlanner
     /// Without it those edges are never taken.
     /// </param>
     /// <param name="shaping">
-    /// The source has text that needs complex-script shaping: <see cref="ConversionEdge.Unshaped"/> edges are left out.
+    /// The source has text that needs complex-script shaping — or letters the unshaped engine has no widths for
+    /// (outside ASCII and Latin-1 other than full-width CJK): <see cref="ConversionEdge.Unshaped"/> edges are
+    /// left out.
     /// </param>
     /// <param name="motionPhoto">
     /// Take the video of a Live / Motion Photo (<see cref="Presets.Preset.ExtractsMotionOf"/>): the route is one

@@ -7,7 +7,13 @@
 // FindInFile scans a document's text cheaply, without reading it into the document model: the content parts of an
 // Office Open XML / OWPML / OpenDocument / EPUB package as they are (markup is ASCII, so any match is text), a text
 // file decoded like the plain text reader does (character references of HTML and RTF included).
+//
+// The same scan also finds text rhwp has no widths for: its width tables cover only ASCII and Latin-1, general
+// punctuation, math, the CJK forms and Hangul (rhwp#8143), so a letter of any other script — Polish, Turkish,
+// Vietnamese, Greek, Cyrillic, ... — or a combining mark is laid out at a fixed half-em. Such a document takes
+// a route without unshaped edges when one exists and keeps rhwp otherwise (it is never refused for this).
 
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -74,6 +80,72 @@ internal static partial class ComplexScripts
         (0x11000, 0x11FFF, "Brahmic"),
     ];
 
+    /// <summary>
+    /// The code point ranges rhwp's width tables are generated for (src/tools/font_metric_gen.rs, rhwp#8143):
+    /// ASCII, Latin-1, general punctuation, math, CJK symbols, Hangul jamo and syllables, and the fullwidth
+    /// forms. A rhwp release that measures more is a one-line edit here.
+    /// </summary>
+    private static readonly (int Start, int End)[] MeasuredRanges =
+    [
+        (0x0020, 0x007E),
+        (0x00A0, 0x00FF),
+        (0x2000, 0x206F),
+        (0x2200, 0x22FF),
+        (0x3000, 0x303F),
+        (0x3130, 0x318F),
+        (0xAC00, 0xD7A3),
+        (0xFF00, 0xFF5E),
+    ];
+
+    /// <summary>Blocks rhwp does not measure but lays out at a full em, which is right for them (rhwp#8143).</summary>
+    private static readonly (int Start, int End)[] FullWidthCjk =
+    [
+        (0x1100, 0x11FF),
+        (0x2E80, 0x2FDF),
+        (0x3000, 0x303F),
+        (0x3040, 0x30FF),
+        (0x3100, 0x312F),
+        (0x3130, 0x318F),
+        (0x31A0, 0x31FF),
+        (0x3200, 0x33FF),
+        (0x3400, 0x4DBF),
+        (0x4E00, 0x9FFF),
+        (0xA960, 0xA97F),
+        (0xAC00, 0xD7FF),
+        (0xF900, 0xFAFF),
+        (0xFF00, 0xFFEF),
+        (0x20000, 0x3FFFF),
+    ];
+
+    /// <summary>
+    /// Variation selectors: zero-width, default-ignorable marks (Mn) that only pick the glyph variant of the
+    /// letter they follow — an emoji's text or picture form, a Mongolian letter's shape, an ideograph's
+    /// registered variant. They carry no width of their own, so they must not reroute a measured document.
+    /// </summary>
+    private static readonly (int Start, int End)[] VariationSelectors =
+    [
+        (0x180B, 0x180D),
+        (0xFE00, 0xFE0F),
+        (0xE0100, 0xE01EF),
+    ];
+
+    /// <summary>Coarse names for the log line, by first code point like <see cref="Blocks"/>; else "U+XXXX".</summary>
+    private static readonly (int Start, int End, string Name)[] UnmeasuredNames =
+    [
+        (0x0100, 0x024F, "Latin Extended"),
+        (0x0250, 0x02AF, "IPA"),
+        (0x0300, 0x036F, "combining marks"),
+        (0x0370, 0x03FF, "Greek"),
+        (0x0400, 0x052F, "Cyrillic"),
+        (0x0530, 0x058F, "Armenian"),
+        (0x10A0, 0x10FF, "Georgian"),
+        (0x1C80, 0x1C8F, "Cyrillic"),
+        (0x1E00, 0x1EFF, "Latin Extended"),
+        (0x1F00, 0x1FFF, "Greek"),
+        (0x2DE0, 0x2DFF, "Cyrillic"),
+        (0xA640, 0xA69F, "Cyrillic"),
+    ];
+
     /// <summary>The script of <paramref name="codePoint"/> when it needs shaping ("Arabic", "Gujarati"), else null.</summary>
     public static string? ScriptOf(int codePoint)
     {
@@ -88,6 +160,48 @@ internal static partial class ComplexScripts
                 return name;
         }
         return null;
+    }
+
+    /// <summary>
+    /// The script of <paramref name="codePoint"/> when rhwp draws it but has no width for it ("Cyrillic"), else
+    /// null: a letter or combining mark outside <see cref="MeasuredRanges"/> — decomposed e + ´ is drawn at the
+    /// same half-em — that is no full-width CJK rhwp estimates at an em (<see cref="FullWidthCjk"/>) and no
+    /// shaping script (that is the other scan's job). The name only reaches the log;
+    /// <see cref="UnmeasuredNames"/> is intentionally coarse.
+    /// </summary>
+    private static string? UnmeasuredScriptOf(int codePoint)
+    {
+        if (codePoint is < 0 or > 0x10FFFF // a reference can name a value outside Unicode
+            || Inside(VariationSelectors, codePoint)
+            || CharUnicodeInfo.GetUnicodeCategory(codePoint)
+                is not (UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter
+                    or UnicodeCategory.TitlecaseLetter or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter
+                    or UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark)
+            || Inside(MeasuredRanges, codePoint)
+            || Inside(FullWidthCjk, codePoint)
+            || ScriptOf(codePoint) is not null)
+            return null;
+        foreach (var (start, end, name) in UnmeasuredNames)
+        {
+            if (codePoint < start)
+                break;
+            if (codePoint <= end)
+                return name;
+        }
+        return $"U+{codePoint:X4}";
+    }
+
+    /// <summary>True when <paramref name="codePoint"/> is inside one of the sorted <paramref name="ranges"/>.</summary>
+    private static bool Inside((int Start, int End)[] ranges, int codePoint)
+    {
+        foreach (var (start, end) in ranges)
+        {
+            if (codePoint < start)
+                return false;
+            if (codePoint <= end)
+                return true;
+        }
+        return false;
     }
 
     public static bool IsComplex(int codePoint) => ScriptOf(codePoint) is not null;
@@ -130,17 +244,23 @@ internal static partial class ComplexScripts
     }
 
     /// <summary>The first script in <paramref name="text"/> that needs shaping, or null.</summary>
-    public static string? Find(ReadOnlySpan<char> text)
+    public static string? Find(ReadOnlySpan<char> text) => Find(text, ScriptOf, Blocks[0].Start);
+
+    /// <summary>
+    /// The first answer of <paramref name="classifier"/> in <paramref name="text"/>; code points below
+    /// <paramref name="skipBelow"/> (the classifier's first block) are not asked about.
+    /// </summary>
+    private static string? Find(ReadOnlySpan<char> text, Func<int, string?> classifier, int skipBelow)
     {
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
-            if (c < 0x0590)
+            if (c < skipBelow)
                 continue;
             var codePoint = char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1])
                 ? char.ConvertToUtf32(c, text[++i])
                 : c;
-            if (ScriptOf(codePoint) is { } script)
+            if (classifier(codePoint) is { } script)
                 return script;
         }
         return null;
@@ -154,21 +274,50 @@ internal static partial class ComplexScripts
     /// here: the conversion then reports what is wrong with them).
     /// </summary>
     /// <param name="format">Format id of the file (docx, txt, hwpx, ...).</param>
-    public static string? FindInFile(string path, string format)
+    public static string? FindInFile(string path, string format) => FindInFile(path, format, ScriptOf, Blocks[0].Start);
+
+    /// <summary>
+    /// The first script in the text of a document that rhwp draws but cannot measure (rhwp#8143), or null.
+    /// </summary>
+    /// <param name="format">Format id of the file (docx, txt, hwpx, ...).</param>
+    public static string? FindUnmeasuredInFile(string path, string format) => FindBothInFile(path, format).Unmeasured;
+
+    /// <summary>
+    /// Both answers of the scan in one pass: the first script that needs shaping stops the scan and wins the
+    /// file; the first script rhwp cannot measure is remembered while the scan runs on.
+    /// </summary>
+    /// <param name="format">Format id of the file (docx, txt, hwpx, ...).</param>
+    public static (string? Shaping, string? Unmeasured) FindBothInFile(string path, string format)
+    {
+        string? unmeasured = null;
+        // No letter below 0x0100 is unmeasured: ASCII and Latin-1 are, controls are no letters.
+        var shaping = FindInFile(path, format, Both, skipBelow: 0x0100);
+        return (shaping, unmeasured);
+
+        string? Both(int codePoint)
+        {
+            if (ScriptOf(codePoint) is { } script)
+                return script;
+            unmeasured ??= UnmeasuredScriptOf(codePoint);
+            return null;
+        }
+    }
+
+    private static string? FindInFile(string path, string format, Func<int, string?> classifier, int skipBelow)
     {
         try
         {
             if (IsZip(path))
-                return FindInPackage(path, format);
+                return FindInPackage(path, format, classifier, skipBelow);
             // Web archives and mail are MIME: their HTML (or text) part is what reaches the PDF.
             if (format is "mhtml" or "eml")
             {
                 var message = MimeKit.MimeMessage.Load(path);
-                return FindInString(message.HtmlBody ?? message.TextBody ?? "");
+                return FindInString(message.HtmlBody ?? message.TextBody ?? "", classifier, skipBelow);
             }
             return format is "txt" or "md" or "html" or "csv" or "tsv" or "fb2" or "rtf" or "rst" or "tex" or "org" or "adoc"
                 or "typ" or "mediawiki" or "dbk" or "textile" or "man" or "opml"
-                ? FindInText(path)
+                ? FindInText(path, classifier, skipBelow)
                 : null; // binary formats (HWP, DOC, MOBI, ...): left to the engines
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException)
@@ -187,7 +336,7 @@ internal static partial class ComplexScripts
     /// <summary>Text files are read whole (as the readers do), up to this size; a larger one is scanned in its first part.</summary>
     private const int MaxTextBytes = 64 * 1024 * 1024;
 
-    private static string? FindInText(string path)
+    private static string? FindInText(string path, Func<int, string?> classifier, int skipBelow)
     {
         byte[] bytes;
         using (var stream = File.OpenRead(path))
@@ -195,12 +344,12 @@ internal static partial class ComplexScripts
             bytes = new byte[(int)Math.Min(stream.Length, MaxTextBytes)];
             stream.ReadExactly(bytes);
         }
-        return FindInString(DocumentReaders.DecodeText(bytes));
+        return FindInString(DocumentReaders.DecodeText(bytes), classifier, skipBelow);
     }
 
-    private static string? FindInString(string text)
+    private static string? FindInString(string text, Func<int, string?> classifier, int skipBelow)
     {
-        if (Find(text) is { } script)
+        if (Find(text, classifier, skipBelow) is { } script)
             return script;
         // &#2693; / &#x0A85; in HTML and XML, ⚓? in RTF.
         foreach (Match match in CharacterReference().Matches(text))
@@ -210,7 +359,9 @@ internal static partial class ComplexScripts
                 : int.Parse(match.Groups["dec"].ValueSpan, System.Globalization.CultureInfo.InvariantCulture);
             if (value < 0)
                 value += 0x10000; // RTF writes code points above 32767 as negative numbers
-            if (ScriptOf(value) is { } referenced)
+            if (value is < 0 or > 0x10FFFF)
+                continue; // a reference can name a value outside Unicode (&#1114112;, \u-99999): it is no script
+            if (classifier(value) is { } referenced)
                 return referenced;
         }
         return null;
@@ -242,7 +393,7 @@ internal static partial class ComplexScripts
         };
     }
 
-    private static string? FindInPackage(string path, string format)
+    private static string? FindInPackage(string path, string format, Func<int, string?> classifier, int skipBelow)
     {
         using var zip = ZipFile.OpenRead(path);
         var buffer = new char[64 * 1024];
@@ -255,7 +406,7 @@ internal static partial class ComplexScripts
             while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
             {
                 // A surrogate pair cut at the end of the buffer only hides a supplementary-plane letter there.
-                if (Find(buffer.AsSpan(0, read)) is { } script)
+                if (Find(buffer.AsSpan(0, read), classifier, skipBelow) is { } script)
                     return script;
             }
         }

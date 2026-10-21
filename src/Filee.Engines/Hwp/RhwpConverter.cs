@@ -4,7 +4,10 @@
 // rhwp draws text one character after the other, left to right, without OpenType shaping: Arabic letters don't join
 // and run the wrong way, Indic vowel signs and conjuncts come out as separate glyphs with dotted circles (issues #185,
 // #202). Its PDF edges are marked Unshaped, so a document with such text (found by ComplexScripts) goes to LibreOffice,
-// or is refused with that reason when LibreOffice is missing.
+// or is refused with that reason when LibreOffice is missing. rhwp's width tables cover only ASCII and Latin-1,
+// general punctuation, math, the CJK forms and Hangul, so a letter of any other script — Polish, Turkish, Vietnamese,
+// Greek, Cyrillic, ... — overlaps at a fixed half-em (rhwp#8143): such a document takes a route without rhwp when
+// one exists, and is never refused for it.
 
 using System.IO.Compression;
 using Filee.Core.Conversion;
@@ -44,10 +47,16 @@ public sealed class RhwpConverter : IConverter, ITextShapingCheck
     ];
 
     /// <summary>
-    /// The first script in the source's text that rhwp can't draw. Every format that reaches rhwp through the HWPX
-    /// writer is scanned (DOCX, TXT, Markdown, HTML, PPTX, XLSX, EPUB, HWPX, ...); a binary HWP is not.
+    /// The scripts in the source's text that rhwp can't draw: one that needs shaping, and one it draws but has no
+    /// widths for — letters outside ASCII and Latin-1 other than the full-width CJK it estimates at an em
+    /// (rhwp#8143). Both answers come from one pass. Every format that reaches rhwp through the HWPX writer is
+    /// scanned (DOCX, TXT, Markdown, HTML, PPTX, XLSX, EPUB, HWPX, ...); a binary HWP is not.
     /// </summary>
-    public string? ScriptNeedingShaping(string sourcePath, string sourceFormat) => ComplexScripts.FindInFile(sourcePath, sourceFormat);
+    public TextScripts ScanScripts(string sourcePath, string sourceFormat)
+    {
+        var (shaping, unmeasured) = ComplexScripts.FindBothInFile(sourcePath, sourceFormat);
+        return new TextScripts(shaping, unmeasured);
+    }
 
     public EngineStatus GetStatus()
     {

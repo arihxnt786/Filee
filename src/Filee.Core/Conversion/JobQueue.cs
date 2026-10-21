@@ -502,15 +502,28 @@ public sealed class JobQueue : IAsyncDisposable
             return Fail(file, "error.no_route", $"{source.Id} → {target}");
 
         // A step that draws text without shaping (rhwp) would break Arabic, Hebrew, Indic or Thai text: such a file
-        // takes a route without it (LibreOffice), or is refused with the reason rather than written broken.
-        if (route.Steps.FirstOrDefault(s => s.Unshaped)?.Converter is ITextShapingCheck check
-            && ScriptNeedingShaping(check, file.SourcePath, source.Id) is { } script)
+        // takes a route without it (LibreOffice), or is refused with the reason rather than written broken. One
+        // scan of the file's text answers this and the widths question below.
+        var scripts = route.Steps.FirstOrDefault(s => s.Unshaped)?.Converter is ITextShapingCheck check
+            ? ScanScripts(check, file.SourcePath, source.Id)
+            : null;
+        if (scripts?.NeedsShaping is { } script)
         {
             _log.LogInformation("{File} has {Script} text, which {Engine} can't draw: planning a route without it",
                 file.SourcePath, script, route.Steps.First(s => s.Unshaped).Converter.DisplayName);
             route = planner.Plan(source.Id, target, frames, shaping: true);
             if (route is null)
                 return Fail(file, "error.needs_shaping", script);
+        }
+        // Letters the engine has no widths for — anything outside ASCII and Latin-1 but the full-width CJK it
+        // estimates at an em (Polish, Turkish, Vietnamese, Greek, Cyrillic, ... — rhwp#8143) — overlap at a fixed
+        // half-em: still readable, so the file is never refused, it only takes a route without the unshaped step
+        // when there is one.
+        else if (scripts?.WithoutWidths is { } unmeasured)
+        {
+            _log.LogInformation("{File} has {Script} text, which {Engine} can't measure: planning a route without it",
+                file.SourcePath, unmeasured, route.Steps.First(s => s.Unshaped).Converter.DisplayName);
+            route = planner.Plan(source.Id, target, frames, shaping: true) ?? route;
         }
 
         // Rotate / flip: only an engine that turns images does it. Without one the file would come out unturned
@@ -683,12 +696,12 @@ public sealed class JobQueue : IAsyncDisposable
         return [zipPath];
     }
 
-    /// <summary>The engine's check; a check that fails (an unreadable file) finds nothing, and the conversion reports the file.</summary>
-    private string? ScriptNeedingShaping(ITextShapingCheck check, string path, string format)
+    /// <summary>The engine's scan; one that fails (an unreadable file) finds nothing, and the conversion reports the file.</summary>
+    private TextScripts? ScanScripts(ITextShapingCheck check, string path, string format)
     {
         try
         {
-            return check.ScriptNeedingShaping(path, format);
+            return check.ScanScripts(path, format);
         }
         catch (Exception ex)
         {
