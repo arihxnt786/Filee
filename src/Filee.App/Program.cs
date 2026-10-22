@@ -274,19 +274,30 @@ internal static class Program
     /// <summary>Also used by the XAML previewer.</summary>
     public static AppBuilder BuildAvaloniaApp()
     {
-        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+        var builder = AppBuilder.Configure<App>();
+        if (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+        {
+            builder.UseWayland().UseSkia().UseHarfBuzz();
+        }
+        else
+        {
+            builder.UsePlatformDetect();
+        }
+
         if (OperatingSystem.IsMacOS())
             builder = builder.With(new MacOSPlatformOptions { ShowInDock = PreloadedStore?.Settings.ShowInDock ?? true });
         if (OperatingSystem.IsWindows())
             builder = builder.With(WindowsRendering.Options(
                 WindowsRendering.Normalize(Environment.GetEnvironmentVariable(WindowsRendering.Variable)),
                 adapters => Log.LogInformation("Graphics adapters: {Adapters}", adapters)));
+
         builder = builder
             .ConfigureFonts(fonts => fonts.AddFontCollection(new FileeFontCollection()))
 #if DEBUG
             .WithDeveloperTools()
 #endif
             .LogToTrace();
+
         AvaloniaLogForwarder.Install(Log);
         return builder;
     }

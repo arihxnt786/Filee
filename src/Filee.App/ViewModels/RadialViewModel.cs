@@ -135,8 +135,8 @@ public sealed partial class RadialViewModel(UserDataStore store, ILocalizer loc,
         ShowFace(back: false);
         CenterTitle = loc["donut.center_drag"];
         CenterSubtitle = null;
-        DonutOpacity = 0;
-        HitBackground = "#01000000";
+        DonutOpacity = 1;
+        HitBackground = "Transparent";
     }
 
     /// <summary>

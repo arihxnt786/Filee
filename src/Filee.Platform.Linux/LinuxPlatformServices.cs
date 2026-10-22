@@ -21,12 +21,12 @@ public sealed class LinuxPlatformServices : IPlatformServices
         string.Equals(Environment.GetEnvironmentVariable("XDG_SESSION_TYPE"), "wayland", StringComparison.OrdinalIgnoreCase)
         || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
 
-    // Wayland gestures (experimental) are opt-in: FILEE_WAYLAND_GESTURES=1 on KDE Plasma. libuiohook's libinput backend
-    // reads /dev/input, so /dev/input is only probed once the switch is set, and it works once the user is in the
-    // `input` group. Presses carry no position and a mouse only moves relatively there; a KWin script places the donut.
+    // Wayland gestures (experimental) are opt-in: FILEE_WAYLAND_GESTURES=1.
+    // Originally KDE Plasma only; patched to support any Wayland compositor (e.g. Hyprland).
+    // libuiohook's libinput backend reads /dev/input, so the user must be in the `input` group.
+    // On Hyprland, windowrulev2 places the donut at the cursor instead of a KWin script.
     private static readonly bool WaylandGestures = IsWaylandSession
         && Environment.GetEnvironmentVariable("FILEE_WAYLAND_GESTURES") == "1"
-        && (Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "").Split(':').Contains("KDE", StringComparer.OrdinalIgnoreCase)
         && CanReadInputDevices();
 
     private static bool CanReadInputDevices()

@@ -214,8 +214,15 @@ public sealed class RadialController(
 
     private RadialWindow EnsureWindow()
     {
+        if (_window is { IsLoaded: true } w)
+            return w;
+
+        // On native Wayland, hiding a window can destroy its xdg_surface. Re-create if closed.
         if (_window is not null)
-            return _window;
+        {
+            try { _window.Close(); } catch { }
+            _window = null;
+        }
 
         var window = new RadialWindow { DataContext = viewModel };
         var donut = window.DonutControl;
