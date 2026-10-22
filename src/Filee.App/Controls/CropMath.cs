@@ -60,6 +60,22 @@ public static class CropMath
         return new Rect((double)x / width, (double)y / height, normalized.Width, normalized.Height);
     }
 
+    /// <summary>How close (screen pixels) the frame's centre has to come to the picture's centre line to snap to it.</summary>
+    public const double SnapDistance = 8;
+
+    /// <summary>
+    /// One side of a frame being dragged (issue #369): its start moved so its centre sits on the centre of
+    /// <paramref name="min"/>…<paramref name="max"/> when it comes within <see cref="SnapDistance"/> of it. A frame as
+    /// wide as the picture has nowhere to go and never counts as snapped.
+    /// </summary>
+    public static (double Start, bool Snapped) SnapToCentre(double start, double length, double min, double max)
+    {
+        var centre = (min + max) / 2;
+        if (length >= max - min - 0.5 || Math.Abs(start + length / 2 - centre) > SnapDistance)
+            return (start, false);
+        return (centre - length / 2, true);
+    }
+
     /// <summary>Space between the frame and the size chip.</summary>
     public const double ChipGap = 10;
 

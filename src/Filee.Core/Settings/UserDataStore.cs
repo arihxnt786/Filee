@@ -750,6 +750,9 @@ internal static class SettingsMigrations
         // v32: logs and script source, Video CD DAT and Workbench archives learn their donuts; custom claims stay put.
         if (from < 32)
             changed |= LearnExtensions(profiles, out _, ["log", "py", "pac", "bat", "command", "dat", "wbpz"]);
+        // v33: Lua scripts and CSS style sheets learn the text donut; custom claims stay put.
+        if (from < 33)
+            changed |= LearnExtensions(profiles, out _, ["lua", "css"]);
         return changed;
     }
 

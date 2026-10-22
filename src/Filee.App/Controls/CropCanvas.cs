@@ -103,6 +103,9 @@ public sealed class CropCanvas : Control
     private CropHandle _hoverHandle = CropHandle.None;
     private Point _dragStartPoint;
     private Rect _dragStartCrop;
+
+    // The frame being moved sits on the picture's vertical / horizontal centre line: its guide is drawn.
+    private bool _snappedX, _snappedY;
     private const double MinSizePx = 24.0;
 
     // ───── Motion: tweens evaluated against the clock at each render, so a lost frame never leaves one half done ─────
@@ -409,6 +412,7 @@ public sealed class CropCanvas : Control
             context.DrawImage(SourceImage, source, imgBounds);
 
         DrawGrid(context, crop, _grid.Value(now));
+        DrawCentreGuides(context, imgBounds);
         DrawFrame(context, crop, now);
         DrawSizeChip(context, crop, imgBounds, bounds);
     }
@@ -458,6 +462,20 @@ public sealed class CropCanvas : Control
             context.DrawLine(GridPen, new Point(x, crop.Top), new Point(x, crop.Bottom));
             context.DrawLine(GridPen, new Point(crop.Left, y), new Point(crop.Right, y));
         }
+    }
+
+    /// <summary>The picture's centre line the moved frame snapped to, across the whole picture.</summary>
+    private void DrawCentreGuides(DrawingContext context, Rect picture)
+    {
+        if (_activeHandle != CropHandle.Body || !(_snappedX || _snappedY))
+            return;
+        var pen = new Pen(AccentBrush ?? Brushes.MediumPurple, 1, DashStyle.Dash);
+        var x = Math.Round(picture.Center.X) + 0.5;
+        var y = Math.Round(picture.Center.Y) + 0.5;
+        if (_snappedX)
+            context.DrawLine(pen, new Point(x, picture.Top), new Point(x, picture.Bottom));
+        if (_snappedY)
+            context.DrawLine(pen, new Point(picture.Left, y), new Point(picture.Right, y));
     }
 
     private void DrawFrame(DrawingContext context, Rect crop, long now)
@@ -738,6 +756,8 @@ public sealed class CropCanvas : Control
 
             var newX = SafeClamp(_dragStartCrop.X + deltaX, imgBounds.Left, Math.Max(imgBounds.Left, imgBounds.Right - _dragStartCrop.Width));
             var newY = SafeClamp(_dragStartCrop.Y + deltaY, imgBounds.Top, Math.Max(imgBounds.Top, imgBounds.Bottom - _dragStartCrop.Height));
+            (newX, _snappedX) = CropMath.SnapToCentre(newX, _dragStartCrop.Width, imgBounds.Left, imgBounds.Right);
+            (newY, _snappedY) = CropMath.SnapToCentre(newY, _dragStartCrop.Height, imgBounds.Top, imgBounds.Bottom);
 
             SetCropFromScreen(new Rect(newX, newY, _dragStartCrop.Width, _dragStartCrop.Height), imgBounds);
             return;
@@ -897,6 +917,7 @@ public sealed class CropCanvas : Control
         {
             _dragStartPoint = pt;
             _dragStartCrop = crop;
+            _snappedX = _snappedY = false;
             e.Pointer.Capture(this);
             e.Handled = true;
             PopHandle(_activeHandle);

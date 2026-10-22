@@ -1,5 +1,5 @@
-// The crop overlay's arithmetic: ratios and their portrait forms, keyboard nudges, the frame in pixels and where the
-// size chip goes.
+// The crop overlay's arithmetic: ratios and their portrait forms, keyboard nudges, snapping to the centre, the frame
+// in pixels and where the size chip goes.
 
 using Avalonia;
 using Filee.App.Controls;
@@ -20,6 +20,24 @@ public class CropMathTests
     public void Ratios_and_their_portrait_forms(string mode, bool portrait, double expected)
     {
         Assert.Equal(expected, CropMath.Ratio(mode, portrait, 1600, 1000), 6);
+    }
+
+    [Theory]
+    // A 100 px wide frame over a 0…1000 px picture: centred at 500 when its start is 450.
+    [InlineData(450, 450, true)]   // already centred
+    [InlineData(443, 450, true)]   // 7 px off: pulled in
+    [InlineData(458, 450, true)]   // 8 px off: still pulled in
+    [InlineData(459, 459, false)]  // 9 px off: left alone
+    [InlineData(100, 100, false)]  // far away
+    public void A_moved_frame_snaps_to_the_centre_line(double start, double expected, bool snapped)
+    {
+        Assert.Equal((expected, snapped), CropMath.SnapToCentre(start, 100, 0, 1000));
+    }
+
+    [Fact]
+    public void A_frame_as_wide_as_the_picture_never_counts_as_snapped()
+    {
+        Assert.Equal((0.0, false), CropMath.SnapToCentre(0, 1000, 0, 1000));
     }
 
     [Fact]

@@ -133,7 +133,9 @@ multi-frame pictures refused, the EXIF thumbnail dropped), one history entry for
   skipped. Every file starts free and whole, its portrait/landscape choice following the picture.
 - `Controls/CropCanvas` is the stage: the picture inside `ImagePadding`, the part outside the frame frosted (a copy at
   most 40 px across, drawn large) under a veil of the page colour, the frame in the accent colour with round handles,
-  a rule-of-thirds grid while dragging and a size chip that follows the frame. The preview is downscaled once by
+  a rule-of-thirds grid while dragging and a size chip that follows the frame. A frame being moved snaps onto the
+  picture's vertical or horizontal centre line within `CropMath.SnapDistance` (8 px) and shows that line as a dashed
+  guide until the drag ends. The preview is downscaled once by
   `CropService.LoadPreviewAsync`; nothing is decoded again while dragging. Programmatic changes (reset, a ratio, a
   new picture) ease in with tweens read against the clock, so a lost frame never leaves one half done; dragging and
   arrow-key nudges follow at once, and `PlayAnimations` (from `Motion.Enabled`) turns all of it off.
