@@ -28,6 +28,7 @@ public class CropOverlayTests
     {
         { "en", false }, { "en", true }, { "ko", false }, { "ko", true }, { "ru", false }, { "hi", true }, { "ar", false }, { "ar", true },
         { "pt-BR", false },
+        { "fr", false },
     };
 
     [AvaloniaTheory]

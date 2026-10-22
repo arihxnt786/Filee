@@ -102,6 +102,9 @@ public partial class LocalizationTests
     [InlineData("zh-HK", "zh-TW")]
     [InlineData("zh-Hant-HK", "zh-TW")]
     [InlineData("zh-MO", "zh-TW")]
+    [InlineData("fr-FR", "fr")]
+    [InlineData("fr-CA", "fr")]
+    [InlineData("frr-DE", "en")]
     [InlineData("de-DE", "en")]
     [InlineData("", "en")] // Linux without LANG: the invariant culture
     public void Auto_follows_the_language_the_user_reads_the_os_in(string os, string expected) =>
@@ -146,6 +149,13 @@ public partial class LocalizationTests
         Assert.Contains(("pt-BR", "Português (Brasil)"), LocalizationService.Languages);
         Assert.Equal("pt-BR", LocalizationService.Resolve("pt-BR"));
         Assert.Equal("pt-BR", LocalizationService.Resolve("PT-br"));
+    }
+
+    [Fact]
+    public void French_is_offered_under_its_own_name()
+    {
+        Assert.Contains(("fr", "Français"), LocalizationService.Languages);
+        Assert.Equal("fr", LocalizationService.Resolve("FR"));
     }
 
     /// <summary>Han characters look different in Japanese, Korean and Chinese fonts: the UI language's come first.</summary>

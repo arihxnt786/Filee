@@ -126,6 +126,9 @@ public sealed class LocalizationService : ILocalizer
         // Brazilian Portuguese is the only Portuguese, so Portugal's "pt-PT" gets it too.
         if (ui.StartsWith("pt", StringComparison.OrdinalIgnoreCase))
             return "pt-BR";
+        // "fr" and every region ("fr-FR", "fr-CA", …), but not North Frisian "frr".
+        if (ui.Equals("fr", StringComparison.OrdinalIgnoreCase) || ui.StartsWith("fr-", StringComparison.OrdinalIgnoreCase))
+            return "fr";
         return "en";
     }
 
