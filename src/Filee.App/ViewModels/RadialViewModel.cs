@@ -151,8 +151,11 @@ public sealed partial class RadialViewModel(UserDataStore store, ILocalizer loc,
         HitBackground = "Transparent";
         ApplyAppearance();
 
-        var profile = ProfileSelector.Select(store.Profiles, files);
-        var formats = ProfileSelector.DetectFormats(files);
+        // A Shapefile selected with its .dbf, .shx, ... picks the donut of the .shp, not the one for unknown files, and
+        // counts as one file.
+        var counted = CompanionFiles.WithoutCompanions(files);
+        var profile = ProfileSelector.Select(store.Profiles, counted);
+        var formats = ProfileSelector.DetectFormats(counted);
         // Both faces follow the same rule: a slice that can't convert these files is greyed out and says why.
         _front = BuildFace(profile?.PresetIds ?? [], formats);
         (_back, _backIds, _formats) = (null, [.. profile?.BackPresetIds ?? []], formats);
@@ -174,8 +177,8 @@ public sealed partial class RadialViewModel(UserDataStore store, ILocalizer loc,
         }
 
         CenterTitle = formats.Count == 1
-            ? loc.Format("donut.files_same", files.Count, formats[0].DisplayName)
-            : loc.Format("donut.files_mixed", files.Count);
+            ? loc.Format("donut.files_same", counted.Count, formats[0].DisplayName)
+            : loc.Format("donut.files_mixed", counted.Count);
         CenterSubtitle = clickMode ? loc["donut.close_hint"] : null;
     }
 

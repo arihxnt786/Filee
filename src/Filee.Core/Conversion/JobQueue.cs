@@ -391,8 +391,18 @@ public sealed class JobQueue : IAsyncDisposable
 
         try
         {
-            await _combiner!.CombineAsync(inputs.Select(f => f.SourcePath).ToList(), output, format.Id, job.Preset,
-                workDir, progress, job.CancellationToken);
+            // A Shapefile goes into the archive with its companion files (.shx, .dbf, .prj, ...): the .shp alone is no map.
+            var files = new List<string>();
+            var packed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var source in inputs.Select(f => f.SourcePath))
+            {
+                foreach (var file in new[] { source }.Concat(CompanionFiles.Of(source)))
+                {
+                    if (packed.Add(Path.GetFullPath(file)))
+                        files.Add(file);
+                }
+            }
+            await _combiner!.CombineAsync(files, output, format.Id, job.Preset, workDir, progress, job.CancellationToken);
             inputs[0].Outputs.Add(output);
             foreach (var f in inputs)
             {
