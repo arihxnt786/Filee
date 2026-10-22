@@ -85,6 +85,12 @@ public sealed class OutputRule
     /// </summary>
     public bool ZipResult { get; set; }
 
+    /// <summary>
+    /// "Compress" presets: when a file that keeps its format doesn't get smaller, the output is a copy of the source
+    /// instead, with a notice. A result in another format is always kept.
+    /// </summary>
+    public bool OnlyIfSmaller { get; set; }
+
     public OutputRule Clone()
     {
         var clone = (OutputRule)MemberwiseClone();

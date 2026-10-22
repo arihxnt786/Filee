@@ -9,7 +9,7 @@ Filee chooses engines automatically. Settings → *Engines* shows their status, 
 | Windows Imaging Component | part of Windows (Windows only) | **JPEG XR** (JXR, WDP, HDP; HDR screenshots of Windows) → the images ImageMagick writes, and PDF, ICNS, HEIC and SVG through PNG; HDR tone-mapped to SDR |
 | Vector graphics | built in (Svg.Skia, SkiaSharp, ACadSharp) | **SVG/SVGZ → PDF (vector) and images**, SVG ↔ SVGZ, **SVG → DXF** (→ DWG with the CAD engine), **raster images → SVG (tracing)**, PDF-compatible AI → PDF |
 | ICNS | built in | images → ICNS (16–1024 px), ICNS → images |
-| PDFsharp | built in (library) | images → PDF, merge, split, page ranges, **compression** (smaller PDFs, see below) |
+| PDFsharp | built in (library) | images → PDF, merge, split, page ranges, **compression** (smaller PDFs, see below), PDFs without their metadata |
 | PDFium | built in (library) | PDF → images (multi-page TIFF/GIF supported) |
 | Unhwp | built in (library) | HWP/HWPX → TXT, Markdown, HTML (pictures in a `<name>_files` folder next to the Markdown, embedded in the HTML) |
 | Text & Markdown (Markdig) | built in (library) | **Markdown → HTML, TXT**; **TXT, LOG, PY, PAC, BAT, COMMAND → UTF-8 TXT**, preserving source text without running scripts (and → PDF / DOCX through the HWPX writer, rhwp or LibreOffice) |
@@ -32,7 +32,7 @@ Filee chooses engines automatically. Settings → *Engines* shows their status, 
 | LibreOffice + H2Orestart + Java | **optional download** (~420 MB, 1.3 GB on disk) | older and rare formats only: DOC, XLS, PPT, RTF and OpenDocument → PDF and to each other, output as DOCX/ODT/ODS/ODP; HWP/HWPX → DOCX/ODT; read-only formats (see below) → PDF and their kind's editable formats; FODT, OpenDocument templates (OTT, OTS, OTP) and XLT out; SVG → EMF/WMF/ODG, a PDF page → SVG |
 | Pandoc | **optional download** (~42 MB, 240 MB on disk) | Markdown ↔ DOCX/ODT/RTF, DOCX/ODT/HTML/RTF → Markdown, HTML ↔ DOCX/ODT, markup languages (reStructuredText, LaTeX, Org, AsciiDoc, Typst, MediaWiki, DocBook, Jupyter, Textile, man, OPML) ↔ Markdown/HTML/DOCX/ODT and each other (and → RTF, EPUB, TXT), Markdown and markup → PPTX slides |
 | Ghostscript | **optional download** (~20 MB, 31 MB on disk) | EPS/PS → PDF, PDF → EPS/PS, PostScript-based AI → PDF (images through PDF and PDFium); smaller PDFs when a preset asks for it |
-| FFmpeg | **optional download** (~100 MB, 272 MB on disk) | **all video and audio**: video ↔ video (H.264, HEVC, AV1), video → animated GIF / APNG, a still frame or every frame, audio and subtitle extraction, audio ↔ audio (also APE, WavPack, TTA, DSD, DTS, ALAC, …), GIF, APNG and photos → MP4/WEBM/MOV, Live / Motion Photos → their video, a clip of a video → an iPhone Live Photo or Android Motion Photo (experimental), images → HEIC |
+| FFmpeg | **optional download** (~100 MB, 272 MB on disk) | **all video and audio**: video ↔ video (H.264, HEVC, AV1), video → animated GIF / APNG, a still frame or every frame, audio and subtitle extraction, audio ↔ audio (also APE, WavPack, TTA, DSD, DTS, ALAC, …), GIF, APNG and photos → MP4/WEBM/MOV, Live / Motion Photos → their video, a clip of a video → an iPhone Live Photo or Android Motion Photo (experimental), images → HEIC, clips or audio files joined into one, pictures → a slideshow MP4, copies without metadata (see "Media tools") |
 | Calibre | **optional download** (~216 MB, 660 MB on disk) | rare e-book formats: LIT, LRF, CHM, PDB, PML, RB, SNB, TCR, OEB → EPUB; EPUB → MOBI, AZW3, LIT, LRF, PDB, PML, RB, SNB, TCR; e-books → PDF (ranked above the HWPX writer, see below) |
 
 DOCX, XLSX, XLS, ODS and PPTX → PDF need neither Microsoft Office nor LibreOffice: they are read in-process, written as HWPX
@@ -685,6 +685,27 @@ PDFsharp and Magick.NET; nothing has to be installed.
   somewhat smaller at the Balanced level.
 - **Not done**: object streams (PDFsharp writes none), font subsetting or removal of unused glyphs, converting
   colour to gray, flattening transparency or form fields, recompressing JBIG2/CCITT scans.
+
+## Media tools
+
+The everyday presets on the back faces of the images, PDF, video and audio donuts. Video and audio need FFmpeg.
+
+- **Compress image / video / audio** re-encode smaller (quality 75, never above a JPEG's own and PNG at zlib level 9;
+  H.264 at the Small quality, at most 1080p; AAC at the Small quality). A copy in the same format that isn't smaller is
+  replaced by the source, with the same notice as Compress PDF (`OutputRule.OnlyIfSmaller`).
+- **Extract audio** copies AAC or ALAC into M4A without an encode (`MediaOptions.CopyAudioWhenPossible`); other sound
+  is encoded to AAC.
+- **Merge videos** copies the clips with the concat demuxer only when all share the codec setup (ffprobe's extradata
+  hash), size, pixel format, frame rate, turn and kind of sound; otherwise every clip is fitted into the first clip's
+  frame and encoded, a clip without sound silent for its length. **Merge audio** always decodes and joins the sound
+  into one M4A, so no encoder padding or gap is left between files. Both are in `Media/MediaJoining.cs`.
+- **Video from images**: each picture is fitted into 1920 × 1080 as a JPEG, then shown for the preset's seconds with
+  1 s crossfades (`xfade`) or cuts. At most `MediaOptions.MaxSlides` (300) pictures; the queue refuses more before any
+  is converted. A filter graph too long for a command line goes into a `-/filter_complex` file.
+- **Remove metadata** keeps the format. Images lose EXIF, XMP, IPTC, comments and the ICC profile, and a JPEG keeps
+  its own quality. Video and audio are copied without global and per-stream tags, chapters and data tracks; an MKV's
+  attachments (subtitle fonts) stay, with their file name and type. PDFs lose their document information and every
+  XMP packet (`PdfSharpConverter.StripMetadata`); pages, links, bookmarks and form fields stay.
 
 ## Office Open XML variants
 

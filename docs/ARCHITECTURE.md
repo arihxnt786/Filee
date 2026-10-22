@@ -50,6 +50,10 @@
    same name ("Overwrite"). It frees its names and removes an output folder it made if that is left empty.
    "Merge into one PDF" converts each file to PDF and merges with PDFsharp.
    "Compress into one archive" packs the dropped files, unconverted, with the archive engine (`IFileCombiner`).
+   "Merge videos", "Merge audio" and "Video from images" join the files, in the order picked in the merge order
+   window, into one file with FFmpeg (`IMediaJoiner`); pictures become PNG through the image engines first. Like the
+   other one-file jobs, the output follows "subfolder only for several files", and a join that fails or is cancelled
+   is undone by the job's allocator, which deletes only paths that were the job's own.
 6. **Report** – progress and results appear in the toast window and in Home → Recent conversions.
 
 ## Files dragged from a web browser
