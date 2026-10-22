@@ -42,6 +42,8 @@ libwayland-client0 on Ubuntu). To turn it on:
      kpackagetool6 --type=KWin/Script --install "${XDG_DATA_HOME:-$HOME/.local/share}/filee/application/kwin/filee-donut"
      kwriteconfig6 --file kwinrc --group Plugins --key filee-donutEnabled true
      qdbus6 org.kde.KWin /KWin reconfigure
+   After updating Filee, upgrade the installed script the same way, with
+   --upgrade instead of --install, then run the reconfigure line again.
 Limits: Wayland cannot say which window is under the cursor, so a Ctrl+drag in
 any app opens an invisible donut window. It only shows when files are dragged
 onto it, but it rejects drops that are not files, so Ctrl+drag to copy text in an
