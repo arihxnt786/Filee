@@ -95,6 +95,9 @@ public sealed class MagickImageConverter : IConverter, ITiffMerger, IImageTransf
         {
             cancellationToken.ThrowIfCancellationRequested();
             ImageEncoder.ApplyOptions(frame, step.Preset.Image, step.To);
+            // shortcut: animations aren't trimmed (each frame alone would shift), trim all frames to one box when asked.
+            if (step.Preset.Image.TrimTransparent && !(animation && frames.Count > 1))
+                ImageEncoder.TrimTransparentBorders(frame);
         }
         progress?.Report(0.7);
 

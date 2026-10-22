@@ -183,6 +183,7 @@
   "preset.half_size": "आधा आकार",
   "preset.grayscale": "ग्रेस्केल",
   "preset.remove_background": "बैकग्राउंड हटाएँ",
+  "preset.trim_transparent": "पारदर्शी किनारे काटें",
   "preset.group_rotate": "घुमाएँ",
   "preset.rotate_left": "बाएँ घुमाएँ",
   "preset.rotate_left.short": "बाएँ",

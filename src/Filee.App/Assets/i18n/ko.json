@@ -193,6 +193,7 @@
   "preset.half_size": "50% 축소",
   "preset.grayscale": "흑백",
   "preset.remove_background": "배경 제거",
+  "preset.trim_transparent": "투명 여백 자르기",
   "preset.group_rotate": "회전",
   "preset.rotate_left": "왼쪽으로 회전",
   "preset.rotate_left.short": "왼쪽",

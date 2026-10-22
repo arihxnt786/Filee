@@ -193,6 +193,7 @@
   "preset.half_size": "Połowa rozmiaru",
   "preset.grayscale": "Skala szarości",
   "preset.remove_background": "Usuń tło",
+  "preset.trim_transparent": "Przytnij przezroczyste brzegi",
   "preset.group_rotate": "Obróć",
   "preset.rotate_left": "Obróć w lewo",
   "preset.rotate_left.short": "W lewo",

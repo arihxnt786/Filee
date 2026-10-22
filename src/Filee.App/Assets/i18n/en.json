@@ -193,6 +193,7 @@
   "preset.half_size": "Half size",
   "preset.grayscale": "Grayscale",
   "preset.remove_background": "Remove background",
+  "preset.trim_transparent": "Trim transparent borders",
   "preset.group_rotate": "Rotate",
   "preset.rotate_left": "Rotate left",
   "preset.rotate_left.short": "Left",

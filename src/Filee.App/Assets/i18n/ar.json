@@ -183,6 +183,7 @@
   "preset.half_size": "نصف الحجم",
   "preset.grayscale": "تدرّج رمادي",
   "preset.remove_background": "إزالة الخلفية",
+  "preset.trim_transparent": "قص الحواف الشفافة",
   "preset.group_rotate": "تدوير",
   "preset.rotate_left": "تدوير لليسار",
   "preset.rotate_left.short": "يسار",

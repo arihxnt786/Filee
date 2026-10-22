@@ -193,6 +193,7 @@
   "preset.half_size": "Reduzir 50%",
   "preset.grayscale": "Tons de cinza",
   "preset.remove_background": "Remover fundo",
+  "preset.trim_transparent": "Cortar bordas transparentes",
   "preset.group_rotate": "Girar",
   "preset.rotate_left": "Girar à esquerda",
   "preset.rotate_left.short": "Esquerda",

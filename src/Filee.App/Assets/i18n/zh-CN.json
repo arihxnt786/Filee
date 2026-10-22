@@ -193,6 +193,7 @@
   "preset.half_size": "缩小 50%",
   "preset.grayscale": "灰度",
   "preset.remove_background": "去除背景",
+  "preset.trim_transparent": "裁掉透明边框",
   "preset.group_rotate": "旋转",
   "preset.rotate_left": "向左旋转",
   "preset.rotate_left.short": "向左",

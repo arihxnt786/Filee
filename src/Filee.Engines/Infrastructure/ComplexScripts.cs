@@ -12,6 +12,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using Filee.Engines.Hwp.Hwpx;
+using Filee.Engines.Office.Sheets;
 
 namespace Filee.Engines.Infrastructure;
 
@@ -161,6 +162,10 @@ internal static partial class ComplexScripts
             if (IsZip(path))
                 return FindInPackage(path, format);
             // Web archives and mail are MIME: their HTML (or text) part is what reaches the PDF.
+            // Excel 97–2003 is binary: its cells, as the built-in reader reads them (issue #345).
+            if (format is "xls" or "xlt")
+                return XlsReader.Read(path).Sheets.SelectMany(sheet => sheet.Rows.Values).SelectMany(cells => cells.Values)
+                    .Select(cell => Find(cell.Text)).FirstOrDefault(script => script is not null);
             if (format is "mhtml" or "eml")
             {
                 var message = MimeKit.MimeMessage.Load(path);

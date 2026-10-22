@@ -193,6 +193,7 @@
   "preset.half_size": "Вдвое меньше",
   "preset.grayscale": "Оттенки серого",
   "preset.remove_background": "Убрать фон",
+  "preset.trim_transparent": "Обрезать прозрачные края",
   "preset.group_rotate": "Повернуть",
   "preset.rotate_left": "Повернуть влево",
   "preset.rotate_left.short": "Влево",

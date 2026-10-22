@@ -183,6 +183,7 @@
   "preset.half_size": "縮小 50%",
   "preset.grayscale": "グレースケール",
   "preset.remove_background": "背景を削除",
+  "preset.trim_transparent": "透明な余白を切り取る",
   "preset.group_rotate": "回転",
   "preset.rotate_left": "左に回転",
   "preset.rotate_left.short": "左",

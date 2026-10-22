@@ -225,6 +225,36 @@ internal static class ImageEncoder
             image.Flip();
     }
 
+    /// <summary>
+    /// Crops <paramref name="image"/> to the box around its pixels that aren't fully transparent (issue #332). Unlike
+    /// ImageMagick's Trim, which trims whatever colour the corners have, only transparency counts: a picture whose content
+    /// touches a corner keeps its solid border. Nothing changes without transparency, or when every pixel is transparent.
+    /// </summary>
+    public static void TrimTransparentBorders(IMagickImage<byte> image)
+    {
+        if (!image.HasAlpha)
+            return;
+        int width = (int)image.Width, height = (int)image.Height;
+        var rgba = image.GetPixels().ToByteArray(PixelMapping.RGBA)!;
+        int left = width, top = height, right = -1, bottom = -1;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                if (rgba[(y * width + x) * 4 + 3] == 0)
+                    continue;
+                left = Math.Min(left, x);
+                right = Math.Max(right, x);
+                top = Math.Min(top, y);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+        if (right < 0 || (left == 0 && top == 0 && right == width - 1 && bottom == height - 1))
+            return;
+        image.Crop(new MagickGeometry(left, top, (uint)(right - left + 1), (uint)(bottom - top + 1)));
+        image.ResetPage();
+    }
+
     /// <summary>Applies resize / colour / metadata options to one frame.</summary>
     public static void ApplyOptions(IMagickImage<byte> image, ImageOptions options, string targetFormat)
     {
