@@ -134,7 +134,15 @@ public sealed partial class JobViewModel : ObservableObject
     {
         var first = Job.Outputs.FirstOrDefault();
         if (first is not null)
-            _platform.RevealInFileManager(first);
+        {
+            try
+            {
+                _platform.RevealInFileManager(first);
+            }
+            catch
+            {
+            }
+        }
     }
 
     [RelayCommand]

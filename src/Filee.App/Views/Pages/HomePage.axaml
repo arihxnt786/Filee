@@ -54,8 +54,9 @@
       </DockPanel>
     </Border>
 
-    <!-- Drop zone: files dropped here open the donut toolbar at the cursor. -->
+    <!-- Drop zone: files dropped here open the donut toolbar at the cursor. Double-click opens file selector. -->
     <Border x:Name="DropZone" DragDrop.AllowDrop="True" MinHeight="220"
+            Cursor="Hand" ToolTip.Tip="{DynamicResource home.drop_select}"
             Background="{DynamicResource AccentFaintBrush}" BorderBrush="{DynamicResource AccentSoftBrush}"
             BorderThickness="2" CornerRadius="{DynamicResource SoftRadiusLarge}" Padding="24">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
@@ -115,7 +116,7 @@
                   </StackPanel>
                   <!-- The result: its picture, else its format; the corner says whether the job went well. -->
                   <Panel DockPanel.Dock="Left" Width="42" Height="42" Margin="0,0,12,0">
-                    <Border CornerRadius="{DynamicResource SoftRadiusSmall}" ClipToBounds="True" Background="{DynamicResource AccentSoftBrush}">
+                    <Border Classes="history-thumbnail" CornerRadius="{DynamicResource SoftRadiusSmall}" ClipToBounds="True" Background="{DynamicResource AccentSoftBrush}">
                       <Panel>
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasThumbnail}" />
                         <TextBlock Text="{Binding FormatBadge}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"

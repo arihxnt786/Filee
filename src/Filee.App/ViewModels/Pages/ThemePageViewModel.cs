@@ -2,7 +2,9 @@
 
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Filee.App.Controls;
 using Filee.App.Services;
 using Filee.Core.Localization;
@@ -14,13 +16,17 @@ namespace Filee.App.ViewModels.Pages;
 public sealed partial class ThemePageViewModel : ObservableObject
 {
     private readonly UserDataStore _store;
+    private readonly ILocalizer _loc;
     private readonly bool _loading;
 
     public ThemePageViewModel(UserDataStore store, ILocalizer loc, IPlatformServices platform)
     {
         _store = store;
+        _loc = loc;
         _loading = true;
         var theme = store.Settings.Theme;
+        Styles = Enum.GetValues<ThemeStyle>().Select(s => new Choice<ThemeStyle>(s, loc[$"theme.style.{s}"])).ToList();
+        Style = Styles.FirstOrDefault(s => s.Value == theme.Style) ?? Styles[0];
         Modes = Enum.GetValues<ThemeMode>().Select(m => new Choice<ThemeMode>(m, loc[$"theme.mode.{m}"])).ToList();
         Mode = Modes.First(m => m.Value == theme.Mode);
         Accent = Color.TryParse(theme.Accent, out var c) ? c : Colors.MediumPurple;
@@ -40,10 +46,26 @@ public sealed partial class ThemePageViewModel : ObservableObject
         _loading = false;
     }
 
+    public IReadOnlyList<Choice<ThemeStyle>> Styles { get; }
     public IReadOnlyList<Choice<ThemeMode>> Modes { get; }
     public IReadOnlyList<Color> Swatches { get; } = ThemeService.Swatches.Select(Color.Parse).ToList();
     public IReadOnlyList<DonutItem> PreviewItems { get; }
 
+    public sealed record PresetItem(string Key, string Name, Color Color);
+
+    public IReadOnlyList<PresetItem> PastelPresets =>
+        ThemeService.Presets.Select(p => new PresetItem(
+            p.Key,
+            _loc[$"theme.preset.{p.Key}"],
+            p.ActiveColor(IsDarkNow))).ToList();
+
+    private bool IsDarkNow =>
+        Mode?.Value == ThemeMode.Dark ||
+        (Mode?.Value == ThemeMode.System && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+
+    public bool IsMaterialYou => Style?.Value == ThemeStyle.MaterialYou;
+
+    [ObservableProperty] private Choice<ThemeStyle> _style = null!;
     [ObservableProperty] private Choice<ThemeMode> _mode = null!;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(AccentBrush), nameof(PreviewBackdrop))] private Color _accent;
     [ObservableProperty] private string _accentHex = "";
@@ -74,11 +96,34 @@ public sealed partial class ThemePageViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private double _donutOpacity;
 
+    partial void OnStyleChanged(Choice<ThemeStyle>? oldValue, Choice<ThemeStyle> newValue)
+    {
+        OnPropertyChanged(nameof(IsMaterialYou));
+        if (!Choices.Restore(oldValue, newValue, v => Style = v))
+            Save(t => t.Style = newValue.Value);
+    }
+
     partial void OnModeChanged(Choice<ThemeMode>? oldValue, Choice<ThemeMode> newValue)
     {
+        OnPropertyChanged(nameof(PastelPresets));
         if (!Choices.Restore(oldValue, newValue, v => Mode = v))
             Save(t => t.Mode = newValue.Value);
     }
+
+    [RelayCommand]
+    private void PickPreset(PresetItem preset) => Accent = preset.Color;
+
+    [RelayCommand]
+    private void PickSwatch(Color color) => Accent = color;
+
+    [RelayCommand]
+    private void SetStyle(ThemeStyle target)
+    {
+        var match = Styles.FirstOrDefault(s => s.Value == target);
+        if (match != null && Style != match)
+            Style = match;
+    }
+
     partial void OnAccentChanged(Color value)
     {
         var hex = $"#{value.R:X2}{value.G:X2}{value.B:X2}";

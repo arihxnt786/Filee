@@ -62,6 +62,9 @@ public static class Motion
         Changed?.Invoke(null, EventArgs.Empty);
     }
 
+    /// <summary>Optional callback invoked whenever a window is tracked.</summary>
+    public static Action<Window>? WindowTracked { get; set; }
+
     /// <summary>Call once per window so its styles follow the setting.</summary>
     public static void Track(Window window)
     {
@@ -71,6 +74,19 @@ public static class Motion
             Windows.Add(new WeakReference<Window>(window));
         }
         Apply(window);
+        WindowTracked?.Invoke(window);
+    }
+
+    /// <summary>Executes <paramref name="action"/> on all live tracked windows.</summary>
+    public static void ForEachTracked(Action<Window> action)
+    {
+        lock (Windows)
+        {
+            Windows.RemoveAll(w => !w.TryGetTarget(out _));
+            foreach (var weak in Windows)
+                if (weak.TryGetTarget(out var window))
+                    action(window);
+        }
     }
 
     private static void Apply(Window window) => window.Classes.Set("reduced-motion", !Enabled);

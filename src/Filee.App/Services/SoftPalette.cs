@@ -48,6 +48,22 @@ internal static class SoftPalette
         res["SystemAccentColorDark3"] = Shade(accent, -0.45);
     }
 
+    /// <summary>
+    /// Applies variant-specific monochrome accent resources into a theme dictionary so selection
+    /// maintains high contrast in both light (dark charcoal) and dark (silvery white) modes.
+    /// </summary>
+    public static void ApplyMonochromeAccent(IResourceDictionary dict, bool isDark)
+    {
+        var accent = isDark ? Color.Parse("#F1EFE8") : Color.Parse("#1F1E1D");
+        var onAccent = isDark ? Color.Parse("#1F1E1D") : Colors.White;
+        dict["AccentColor"] = accent;
+        dict["AccentBrush"] = new SolidColorBrush(accent);
+        dict["AccentSoftBrush"] = new SolidColorBrush(accent, isDark ? 0.18 : 0.12);
+        dict["AccentFaintBrush"] = new SolidColorBrush(accent, isDark ? 0.08 : 0.05);
+        dict["AccentStrongBrush"] = new SolidColorBrush(accent);
+        dict["OnAccentBrush"] = new SolidColorBrush(onAccent);
+    }
+
     /// <summary>"Softness": one radius drives every control.</summary>
     public static void ApplyCornerRadius(IResourceDictionary res, double radius)
     {
