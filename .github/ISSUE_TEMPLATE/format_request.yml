@@ -1,6 +1,6 @@
 name: Format request
 description: A file type Filee can't open yet
-title: "Format request: "
+title: "[Format]: "
 labels: ["enhancement"]
 body:
   - type: markdown
@@ -16,6 +16,7 @@ body:
         > - files locked with a password you don't have
         >
         > If the app that made the file can export or save it in a common format, that is the way to go.
+
   - type: input
     id: extension
     attributes:
@@ -23,6 +24,7 @@ body:
       placeholder: ".xyz"
     validations:
       required: true
+
   - type: input
     id: source
     attributes:
@@ -30,16 +32,19 @@ body:
       description: The program, device or website.
     validations:
       required: true
+
   - type: input
     id: target
     attributes:
       label: What should Filee convert them to?
       placeholder: "PDF, MP3, PNG…"
+
   - type: textarea
     id: details
     attributes:
       label: Anything else?
       description: A sample file if you can share one, a link to the format's documentation, or an open-source tool that reads it.
+
   - type: checkboxes
     id: not-protected
     attributes:
