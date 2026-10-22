@@ -18,5 +18,6 @@ internal static class AppLanguages
         ("ru", "Русский"),
         ("ar", "العربية"),
         ("pt-BR", "Português (Brasil)"),
+        ("ne", "नेपाली"),
     ];
 }
